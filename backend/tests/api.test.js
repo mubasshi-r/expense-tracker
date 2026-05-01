@@ -13,18 +13,36 @@ import db, { initializeDatabase } from '../src/db.js';
  */
 
 describe('Expense Tracker API - Integration Tests', () => {
+  let authToken;
+
   beforeAll(() => {
     initializeDatabase();
+  });
+
+  beforeEach(async () => {
+    const username = `api_test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const response = await request(app)
+      .post('/auth/register')
+      .send({
+        username,
+        email: `${username}@example.com`,
+        password: 'secret123'
+      });
+
+    authToken = response.body.token;
   });
 
   afterEach(() => {
     // Clear database after each test to prevent state leakage
     try {
       db.exec('DELETE FROM expenses');
+      db.exec('DELETE FROM users');
     } catch (e) {
       // Ignore errors if db is closed
     }
   });
+
+  const authed = (req) => req.set('Authorization', `Bearer ${authToken}`);
 
   // ============================================
   // POST /expenses ENDPOINT
@@ -32,8 +50,7 @@ describe('Expense Tracker API - Integration Tests', () => {
 
   describe('POST /expenses', () => {
     test('creates a new expense successfully (201)', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: 500.50,
           category: 'Food',
@@ -58,18 +75,17 @@ describe('Expense Tracker API - Integration Tests', () => {
         idempotencyKey: 'uuid-dup-1'
       };
 
-      const response1 = await request(app).post('/expenses').send(payload);
+      const response1 = await authed(request(app).post('/expenses')).send(payload);
       expect(response1.status).toBe(201);
 
-      const response2 = await request(app).post('/expenses').send(payload);
+      const response2 = await authed(request(app).post('/expenses')).send(payload);
       expect(response2.status).toBe(200);
       expect(response2.body.isDuplicate).toBe(true);
       expect(response2.body.expense.id).toBe(response1.body.expense.id);
     });
 
     test('returns 400 for validation error - negative amount', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: -100,
           category: 'Food',
@@ -84,8 +100,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('returns 400 for validation error - invalid category', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: 500,
           category: 'InvalidCat',
@@ -99,8 +114,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('returns 400 for validation error - empty description', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: 500,
           category: 'Food',
@@ -114,8 +128,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('returns 400 for validation error - missing idempotencyKey', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: 500,
           category: 'Food',
@@ -129,8 +142,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('preserves decimal precision (BR1)', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: 99.99,
           category: 'Utilities',
@@ -144,8 +156,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('formats amount to 2 decimal places', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: 100,
           category: 'Food',
@@ -166,8 +177,7 @@ describe('Expense Tracker API - Integration Tests', () => {
   describe('GET /expenses', () => {
     test('returns all expenses', async () => {
       // Create expenses one by one
-      const exp1 = await request(app)
-        .post('/expenses')
+      const exp1 = await authed(request(app).post('/expenses'))
         .send({
           amount: 500,
           category: 'Food',
@@ -177,19 +187,17 @@ describe('Expense Tracker API - Integration Tests', () => {
         });
       expect(exp1.status).toBe(201);
 
-      const exp2 = await request(app)
-        .post('/expenses')
+      const exp2 = await authed(request(app).post('/expenses'))
         .send({
           amount: 200,
           category: 'Transport',
           description: 'Taxi',
-          date: '2026-05-02',
+          date: '2026-05-01',
           idempotencyKey: 'get-2-uuid'
         });
       expect(exp2.status).toBe(201);
 
-      const exp3 = await request(app)
-        .post('/expenses')
+      const exp3 = await authed(request(app).post('/expenses'))
         .send({
           amount: 150,
           category: 'Food',
@@ -200,7 +208,7 @@ describe('Expense Tracker API - Integration Tests', () => {
       expect(exp3.status).toBe(201);
 
       // Now fetch all
-      const response = await request(app).get('/expenses');
+      const response = await authed(request(app).get('/expenses'));
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -209,8 +217,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('calculates correct total (BR8)', async () => {
-      await request(app)
-        .post('/expenses')
+      await authed(request(app).post('/expenses'))
         .send({
           amount: 500.50,
           category: 'Food',
@@ -219,24 +226,23 @@ describe('Expense Tracker API - Integration Tests', () => {
           idempotencyKey: 'total-test-1'
         });
 
-      await request(app)
-        .post('/expenses')
+      await authed(request(app).post('/expenses'))
         .send({
           amount: 249.50,
           category: 'Transport',
           description: 'Taxi',
-          date: '2026-05-02',
+          date: '2026-05-01',
           idempotencyKey: 'total-test-2'
         });
 
-      const response = await request(app).get('/expenses');
+      const response = await authed(request(app).get('/expenses'));
 
       expect(response.status).toBe(200);
       expect(response.body.total).toBe('750.00');
     });
 
     test('returns empty list as valid response', async () => {
-      const response = await request(app).get('/expenses');
+      const response = await authed(request(app).get('/expenses'));
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -272,8 +278,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('error response has consistent format', async () => {
-      const response = await request(app)
-        .post('/expenses')
+      const response = await authed(request(app).post('/expenses'))
         .send({
           amount: -100,
           category: 'Food',
@@ -295,8 +300,7 @@ describe('Expense Tracker API - Integration Tests', () => {
   describe('Real-World Scenarios', () => {
     test('Scenario 1: User submits form, refreshes page, submits again (no duplicate)', async () => {
       // First submission
-      const response1 = await request(app)
-        .post('/expenses')
+      const response1 = await authed(request(app).post('/expenses'))
         .send({
           amount: 500,
           category: 'Food',
@@ -309,8 +313,7 @@ describe('Expense Tracker API - Integration Tests', () => {
 
       // Page refresh (form still has same idempotencyKey)
       // User accidentally submits again (or form auto-submits)
-      const response2 = await request(app)
-        .post('/expenses')
+      const response2 = await authed(request(app).post('/expenses'))
         .send({
           amount: 500,
           category: 'Food',
@@ -324,8 +327,7 @@ describe('Expense Tracker API - Integration Tests', () => {
     });
 
     test('Scenario 2: User adds multiple expenses and views total', async () => {
-      await request(app)
-        .post('/expenses')
+      await authed(request(app).post('/expenses'))
         .send({
           amount: 100,
           category: 'Food',
@@ -334,8 +336,7 @@ describe('Expense Tracker API - Integration Tests', () => {
           idempotencyKey: 'scenario-2a-key'
         });
 
-      await request(app)
-        .post('/expenses')
+      await authed(request(app).post('/expenses'))
         .send({
           amount: 50.50,
           category: 'Transport',
@@ -344,7 +345,7 @@ describe('Expense Tracker API - Integration Tests', () => {
           idempotencyKey: 'scenario-2b-key'
         });
 
-      const response = await request(app).get('/expenses');
+      const response = await authed(request(app).get('/expenses'));
 
       expect(response.status).toBe(200);
       expect(response.body.count).toBeGreaterThanOrEqual(2);
@@ -355,8 +356,7 @@ describe('Expense Tracker API - Integration Tests', () => {
       // Simulate retries: all with same key
       const key = 'retry-scenario-key';
 
-      const attempt1 = await request(app)
-        .post('/expenses')
+      const attempt1 = await authed(request(app).post('/expenses'))
         .send({
           amount: 750.25,
           category: 'Utilities',
@@ -369,8 +369,7 @@ describe('Expense Tracker API - Integration Tests', () => {
       const expenseId = attempt1.body.expense.id;
 
       // Retry 1 (400ms later, user clicks retry or auto-retry)
-      const attempt2 = await request(app)
-        .post('/expenses')
+      const attempt2 = await authed(request(app).post('/expenses'))
         .send({
           amount: 750.25,
           category: 'Utilities',
@@ -383,8 +382,7 @@ describe('Expense Tracker API - Integration Tests', () => {
       expect(attempt2.body.expense.id).toBe(expenseId);
 
       // Retry 2
-      const attempt3 = await request(app)
-        .post('/expenses')
+      const attempt3 = await authed(request(app).post('/expenses'))
         .send({
           amount: 750.25,
           category: 'Utilities',
@@ -397,9 +395,12 @@ describe('Expense Tracker API - Integration Tests', () => {
       expect(attempt3.body.expense.id).toBe(expenseId);
 
       // Verify only ONE record in database despite 3 attempts
-      const listResponse = await request(app).get('/expenses');
+      const listResponse = await authed(request(app).get('/expenses'));
       const filtered = listResponse.body.expenses.filter(e => e.idempotencyKey === key);
       expect(filtered.length).toBe(1);
     });
   });
 });
+
+
+

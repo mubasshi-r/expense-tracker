@@ -277,15 +277,17 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`✓ Expense Tracker API running on http://localhost:${PORT}`);
-  console.log(`✓ Database: expenses.db`);
-  console.log('\nBusiness Rules Implemented:');
-  Object.entries(BUSINESS_RULES).forEach(([key, rule]) => {
-    console.log(`  ${key}: ${rule.name}`);
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`✓ Expense Tracker API running on http://localhost:${PORT}`);
+    console.log(`✓ Database: expenses.db`);
+    console.log('\nBusiness Rules Implemented:');
+    Object.entries(BUSINESS_RULES).forEach(([key, rule]) => {
+      console.log(`  ${key}: ${rule.name}`);
+    });
+    console.log('\nAuthentication: JWT tokens required for /expenses endpoints');
+    console.log('User Isolation: Each user can only see their own expenses');
   });
-  console.log('\nAuthentication: JWT tokens required for /expenses endpoints');
-  console.log('User Isolation: Each user can only see their own expenses');
-});
+}
 
 export default app;

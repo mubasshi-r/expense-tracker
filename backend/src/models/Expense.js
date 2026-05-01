@@ -57,8 +57,8 @@ class Expense {
     } else {
       try {
         const decimal = new Decimal(data.amount);
-        if (decimal.lessThanOrEqualTo(VALIDATION_RULES.AMOUNT_MIN)) {
-          errors.amount = `Amount must be greater than ${VALIDATION_RULES.AMOUNT_MIN}`;
+        if (decimal.lessThan(VALIDATION_RULES.AMOUNT_MIN)) {
+          errors.amount = `Amount must be at least ${VALIDATION_RULES.AMOUNT_MIN}`;
         }
         if (decimal.greaterThan(VALIDATION_RULES.AMOUNT_MAX)) {
           errors.amount = `Amount cannot exceed ${VALIDATION_RULES.AMOUNT_MAX}`;
@@ -95,13 +95,17 @@ class Expense {
       errors.date = 'Date must be in YYYY-MM-DD format';
     } else {
       // Check if date is valid and not in future
-      const expenseDate = new Date(data.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const expenseDate = new Date(`${data.date}T00:00:00`);
+      const now = new Date();
+      const today = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0')
+      ].join('-');
       
       if (isNaN(expenseDate.getTime())) {
         errors.date = 'Date is invalid';
-      } else if (expenseDate > today) {
+      } else if (data.date > today) {
         errors.date = 'Date cannot be in the future';
       }
     }

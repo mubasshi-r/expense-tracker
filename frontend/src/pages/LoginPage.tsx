@@ -27,8 +27,8 @@ export function LoginPage() {
     setLoading(true);
     setLocalError('');
 
-    if (!formData.username || !formData.password) {
-      setLocalError('Username and password required');
+    if (!formData.username.trim() || !formData.password) {
+      setLocalError('Username/email and password required');
       setLoading(false);
       return;
     }
@@ -59,14 +59,14 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username or email</label>
             <input
               type="text"
               id="username"
               name="username"
               value={formData.username}
               onChange={handleChange}
-              placeholder="Enter your username"
+              placeholder="Enter your username or email"
               className="form-input"
               disabled={loading}
             />

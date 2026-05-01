@@ -99,19 +99,20 @@ export default class User {
    */
   login(credentials) {
     const { username, password } = credentials;
+    const loginId = typeof username === 'string' ? username.trim() : '';
 
-    if (!username || !password) {
+    if (!loginId || !password) {
       return {
         success: false,
         statusCode: 400,
-        error: 'Username and password required'
+        error: 'Username/email and password required'
       };
     }
 
     try {
       const user = this.db.prepare(
-        'SELECT id, username, email, password FROM users WHERE username = ?'
-      ).get(username);
+        'SELECT id, username, email, password FROM users WHERE username = ? OR email = ?'
+      ).get(loginId, loginId.toLowerCase());
 
       if (!user || !bcrypt.compareSync(password, user.password)) {
         return {

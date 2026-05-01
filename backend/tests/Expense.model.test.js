@@ -15,11 +15,27 @@ import { VALID_CATEGORIES } from '../src/constants.js';
 
 describe('Expense Model - Business Rules', () => {
   let expenseModel;
+  const testUserId = 'test-user-id';
 
   beforeAll(() => {
     // Initialize fresh database for tests
     initializeDatabase();
+    db.prepare(`
+      INSERT OR IGNORE INTO users (id, username, email, password, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(testUserId, 'expense_model_test', 'expense_model_test@example.com', 'hashed-password', new Date().toISOString());
     expenseModel = new Expense(db);
+
+    const create = expenseModel.create.bind(expenseModel);
+    expenseModel.create = (data) => create({ userId: testUserId, ...data });
+
+    const getAll = expenseModel.getAll.bind(expenseModel);
+    expenseModel.getAll = (userIdOrFilters, filters) => {
+      if (typeof userIdOrFilters === 'string') {
+        return getAll(userIdOrFilters, filters);
+      }
+      return getAll(testUserId, userIdOrFilters || {});
+    };
   });
 
   afterEach(() => {
