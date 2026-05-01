@@ -1,0 +1,70 @@
+/**
+ * Dashboard Page Styles
+ */
+
+.dashboard {
+  min-height: calc(100vh - 60px);
+  background: var(--color-bg-alt);
+}
+
+.dashboard-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.dashboard-header h1 {
+  font-size: 2rem;
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.welcome-text {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.dashboard-main {
+  padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+.container-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .container-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: var(--spacing-lg);
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .dashboard-main {
+    padding: var(--spacing-lg) var(--spacing-md);
+  }
+}

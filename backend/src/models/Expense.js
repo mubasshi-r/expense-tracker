@@ -19,26 +19,27 @@ class Expense {
   constructor(db) {
     this.db = db;
     this.insertStmt = db.prepare(`
-      INSERT INTO expenses (id, idempotencyKey, amount, category, description, date, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO expenses (id, userId, idempotencyKey, amount, category, description, date, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     this.selectAllStmt = db.prepare(`
-      SELECT id, idempotencyKey, amount, category, description, date, created_at
+      SELECT id, userId, idempotencyKey, amount, category, description, date, created_at
       FROM expenses
+      WHERE userId = ?
       ORDER BY date DESC, created_at DESC
     `);
     
     this.selectByIdempotencyKeyStmt = db.prepare(`
-      SELECT id, idempotencyKey, amount, category, description, date, created_at
+      SELECT id, userId, idempotencyKey, amount, category, description, date, created_at
       FROM expenses
-      WHERE idempotencyKey = ?
+      WHERE idempotencyKey = ? AND userId = ?
     `);
 
     this.selectByFilterStmt = db.prepare(`
-      SELECT id, idempotencyKey, amount, category, description, date, created_at
+      SELECT id, userId, idempotencyKey, amount, category, description, date, created_at
       FROM expenses
-      WHERE category = ?
+      WHERE userId = ? AND category = ?
       ORDER BY date DESC, created_at DESC
     `);
   }
@@ -117,7 +118,7 @@ class Expense {
    * 3. If found: return existing expense (200 OK)
    * 4. If not: create new expense (201 Created)
    * 
-   * @param {Object} expenseData - { amount, category, description, date, idempotencyKey }
+   * @param {Object} expenseData - { userId, amount, category, description, date, idempotencyKey }
    * @returns {Object} { success, statusCode, expense, isDuplicate }
    */
   create(expenseData) {
@@ -132,7 +133,7 @@ class Expense {
     }
 
     // Step 2: Check for duplicate idempotencyKey (BR2)
-    const existing = this.selectByIdempotencyKeyStmt.get(expenseData.idempotencyKey);
+    const existing = this.selectByIdempotencyKeyStmt.get(expenseData.idempotencyKey, expenseData.userId);
     if (existing) {
       return {
         success: true,
@@ -151,6 +152,7 @@ class Expense {
       
       this.insertStmt.run(
         id,
+        expenseData.userId,
         expenseData.idempotencyKey,
         amount, // Store as DECIMAL string
         expenseData.category,
@@ -164,6 +166,7 @@ class Expense {
         statusCode: 201,
         expense: {
           id,
+          userId: expenseData.userId,
           idempotencyKey: expenseData.idempotencyKey,
           amount: amount,
           category: expenseData.category,
@@ -189,17 +192,18 @@ class Expense {
   /**
    * Get all expenses (BR4: Filtering & BR9: Sorting)
    * 
+   * @param {String} userId - User ID
    * @param {Object} filters - { category }
    * @returns {Array} expenses sorted by date DESC
    */
-  getAll(filters = {}) {
+  getAll(userId, filters = {}) {
     try {
       let expenses = [];
 
       if (filters.category && VALID_CATEGORIES.includes(filters.category)) {
-        expenses = this.selectByFilterStmt.all(filters.category);
+        expenses = this.selectByFilterStmt.all(userId, filters.category);
       } else {
-        expenses = this.selectAllStmt.all();
+        expenses = this.selectAllStmt.all(userId);
       }
 
       return expenses.map(exp => this._formatExpense(exp));

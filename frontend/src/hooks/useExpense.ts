@@ -5,13 +5,8 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import {
-  createExpense,
-  getExpenses,
-  generateUUID,
-  validateAmount,
-  formatDateForAPI
-} from '../api/expenseClient';
+import { useAuth } from '../contexts/authContext';
+import { setAuthToken, createExpense, getExpenses, generateUUID, validateAmount, formatDateForAPI } from '../api/expenseClient';
 import { Expense, PostExpenseRequest, CategoryType, ValidationError } from '../types/expense';
 
 /**
@@ -20,12 +15,18 @@ import { Expense, PostExpenseRequest, CategoryType, ValidationError } from '../t
  * Manages expense list with filtering and sorting
  */
 export function useExpenses() {
+  const { token } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [total, setTotal] = useState<string>('0.00');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('');
   const [sort, setSort] = useState<'date_desc' | 'date_asc'>('date_desc');
+
+  // Set auth token when it changes
+  useEffect(() => {
+    setAuthToken(token);
+  }, [token]);
 
   // Fetch expenses with current filters
   const fetchExpenses = useCallback(async () => {
@@ -151,7 +152,7 @@ export function useExpenseForm(onSuccess?: () => void) {
     }));
   }, []);
 
-  // Submit form (BR2: Idempotency with UUID)
+  // Submit form (BR2: Idempotency with UUID, BR5: Offline support)
   const submit = useCallback(async (): Promise<boolean> => {
     setSubmitError(null);
     setSuccessMessage(null);
@@ -198,6 +199,26 @@ export function useExpenseForm(onSuccess?: () => void) {
         return true;
       }
     } catch (err: any) {
+      // Handle offline scenario (BR5)
+      if (err.isOffline) {
+        // Treat offline submission as success since it's queued
+        setSuccessMessage('✓ Expense saved locally. Will sync when online.');
+
+        // Clear form
+        setFormData({
+          amount: '',
+          category: 'Food',
+          description: '',
+          date: new Date().toISOString().split('T')[0]
+        });
+
+        if (onSuccess) {
+          setTimeout(onSuccess, 500);
+        }
+
+        return true;
+      }
+
       setSubmitError(err.error || 'Failed to create expense. Please try again.');
       console.error('Error submitting expense:', err);
       return false;
@@ -207,6 +228,24 @@ export function useExpenseForm(onSuccess?: () => void) {
 
     return false;
   }, [formData, validate, onSuccess]);
+
+  // Load draft from localStorage on mount (BR5: Offline resilience)
+  useEffect(() => {
+    try {
+      const DRAFT_KEY = 'expense_form_draft';
+      const savedDraft = localStorage.getItem(DRAFT_KEY);
+      
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        // Only load if it's a partial draft (not empty)
+        if (draft.amount || draft.description) {
+          setFormData(draft);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading form draft:', error);
+    }
+  }, []);
 
   // Clear messages after 3 seconds
   useEffect(() => {

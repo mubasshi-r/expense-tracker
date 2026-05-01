@@ -1,81 +1,74 @@
 /**
- * App Component - Main Application
+ * App Component - Main Application with Multi-Page Routing
  * 
- * Coordinates:
- * - ExpenseForm: Create new expenses
- * - ExpenseList: Display expenses
- * - FilterSort: Filter and sort controls
- * 
- * Implements all use cases and business rules
+ * Features:
+ * - User Authentication (Login/Register)
+ * - Dashboard for expense tracking
+ * - Profile and Settings pages
+ * - Protected routes requiring authentication
+ * - Dark mode support
  */
 
-import React, { useCallback } from 'react';
-import { useExpenses } from './hooks/useExpense';
-import ExpenseForm from './components/ExpenseForm';
-import ExpenseList from './components/ExpenseList';
-import FilterSort from './components/FilterSort';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/authContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { Navigation } from './components/Navigation';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { SettingsPage } from './pages/SettingsPage';
+import './styles/index.css';
+import './styles/auth-page.css';
+import './styles/navigation.css';
+import './styles/dashboard.css';
+import './styles/settings-page.css';
 import './styles/app.css';
+import './styles/connection-status.css';
 
 function App() {
-  const {
-    expenses,
-    total,
-    loading,
-    error,
-    filter,
-    sort,
-    fetchExpenses,
-    updateFilter,
-    toggleSort
-  } = useExpenses();
-
-  // Handle successful expense creation - refetch list
-  const handleExpenseAdded = useCallback(() => {
-    setTimeout(() => fetchExpenses(), 500);
-  }, [fetchExpenses]);
-
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-content">
-          <h1>💰 Personal Expense Tracker</h1>
-          <p className="subtitle">Track your spending and understand where your money goes</p>
-        </div>
-      </header>
+    <BrowserRouter>
+      <AuthProvider>
+        <Navigation />
+        <Routes>
+          {/* Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-      <main className="app-main">
-        <div className="container">
-          {/* Left Column: Form */}
-          <div className="form-section">
-            <ExpenseForm onExpenseAdded={handleExpenseAdded} />
-          </div>
+          {/* Protected Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Right Column: List & Controls */}
-          <div className="list-section">
-            <FilterSort
-              selectedCategory={filter}
-              sortOrder={sort}
-              onCategoryChange={updateFilter}
-              onSortToggle={toggleSort}
-            />
-
-            <ExpenseList
-              expenses={expenses}
-              total={total}
-              loading={loading}
-              error={error}
-              onRefresh={fetchExpenses}
-            />
-          </div>
-        </div>
-      </main>
-
-      <footer className="app-footer">
-        <p>
-          🏦 Stay on top of your finances • Built with React & TypeScript
-        </p>
-      </footer>
-    </div>
+          {/* Default Route */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

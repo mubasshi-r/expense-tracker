@@ -1,5 +1,5 @@
 /**
- * Global Styles
+ * Global Styles with Dark Mode Support
  */
 
 * {
@@ -9,19 +9,25 @@
 }
 
 :root {
-  --primary-color: #2563eb;
-  --primary-dark: #1e40af;
-  --secondary-color: #64748b;
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --warning-color: #f59e0b;
+  /* Vibrant Color Palette */
+  --primary: #667eea;
+  --primary-dark: #5568d3;
+  --secondary: #764ba2;
+  --accent: #f093fb;
+  --success: #10b981;
+  --error: #f56565;
+  --warning: #f59e0b;
 
-  --bg-light: #f8fafc;
-  --bg-white: #ffffff;
-  --border-color: #e2e8f0;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
+  /* Light Mode Colors */
+  --color-background: #ffffff;
+  --color-surface: #f8fafc;
+  --color-bg-alt: #f1f5f9;
+  --color-text: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-border: #e2e8f0;
+  --color-input-bg: #f8fafc;
 
+  /* Spacing */
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
@@ -29,13 +35,27 @@
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
 
+  /* Border & Shadows */
   --border-radius: 0.5rem;
+  --border-radius-lg: 1rem;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Dark Mode */
+:root.dark-mode {
+  --color-background: #1a202c;
+  --color-surface: #2d3748;
+  --color-bg-alt: #374151;
+  --color-text: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-border: #4b5563;
+  --color-input-bg: #2d3748;
 }
 
 html {
@@ -44,9 +64,10 @@ html {
 
 body {
   font-family: var(--font-family);
-  color: var(--text-primary);
-  background-color: var(--bg-light);
+  color: var(--color-text);
+  background-color: var(--color-bg-alt);
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Typography */

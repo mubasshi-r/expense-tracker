@@ -5,11 +5,13 @@
  * - UC1: User records new expense
  * - BR3: Validation with inline error messages
  * - BR2: Idempotency key generation
+ * - BR5: Form draft persistence (offline resilience)
  * - Real-time validation feedback
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useExpenseForm } from '../hooks/useExpense';
+import { useFormDraft } from '../hooks/useOffline';
 import { CategoryType } from '../types/expense';
 import '../styles/components.css';
 
@@ -30,6 +32,24 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ onExpenseAdded }) => {
     submit,
     validate
   } = useExpenseForm(onExpenseAdded);
+
+  const { saveDraft, clearDraft } = useFormDraft();
+
+  // Save form draft as user types (debounced by calling saveDraft)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveDraft(formData);
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(timer);
+  }, [formData, saveDraft]);
+
+  // Clear draft on successful submission
+  useEffect(() => {
+    if (successMessage) {
+      clearDraft();
+    }
+  }, [successMessage, clearDraft]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

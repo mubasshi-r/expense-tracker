@@ -3,6 +3,8 @@ import cors from 'cors';
 import 'dotenv/config';
 import db, { initializeDatabase } from './db.js';
 import Expense from './models/Expense.js';
+import User from './models/User.js';
+import { generateToken, authMiddleware } from './middleware/auth.js';
 import { BUSINESS_RULES } from './constants.js';
 
 /**
@@ -24,6 +26,7 @@ app.use(express.json());
 // Initialize database tables on startup
 initializeDatabase();
 const expenseModel = new Expense(db);
+const userModel = new User(db);
 
 /**
  * Health check endpoint
@@ -33,33 +36,142 @@ app.get('/health', (req, res) => {
 });
 
 /**
+ * AUTH ENDPOINTS
+ */
+
+/**
+ * POST /auth/register
+ * Register a new user
+ */
+app.post('/auth/register', (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    const result = userModel.register({ username, email, password });
+
+    if (!result.success) {
+      return res.status(result.statusCode).json({
+        error: result.error || 'Registration failed',
+        details: result.details || result.errors
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken(result.user.id, result.user.username);
+
+    return res.status(result.statusCode).json({
+      success: true,
+      message: 'User registered successfully',
+      user: result.user,
+      token
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    return res.status(500).json({
+      error: 'Registration failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /auth/login
+ * User login
+ */
+app.post('/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    const result = userModel.login({ username, password });
+
+    if (!result.success) {
+      return res.status(result.statusCode).json({
+        error: result.error || 'Login failed',
+        details: result.details
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken(result.user.id, result.user.username);
+
+    return res.status(result.statusCode).json({
+      success: true,
+      message: 'Login successful',
+      user: result.user,
+      token
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({
+      error: 'Login failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /auth/profile
+ * Get current user profile (protected)
+ */
+app.get('/auth/profile', authMiddleware, (req, res) => {
+  try {
+    const user = userModel.getById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch profile'
+    });
+  }
+});
+
+/**
+ * PUT /auth/profile
+ * Update user profile (protected)
+ */
+app.put('/auth/profile', authMiddleware, (req, res) => {
+  try {
+    const result = userModel.updateProfile(req.user.userId, req.body);
+
+    if (!result.success) {
+      return res.status(result.statusCode).json({
+        error: result.error
+      });
+    }
+
+    return res.status(result.statusCode).json({
+      success: true,
+      message: result.message,
+      user: result.user
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    return res.status(500).json({
+      error: 'Failed to update profile'
+    });
+  }
+});
+
+/**
+ * EXPENSE ENDPOINTS (Protected - Require Authentication)
+ */
+
+/**
  * POST /expenses
  * 
- * Create a new expense entry
- * 
- * Request Body:
- * {
- *   "amount": number (>0, ≤999999.99, 2 decimal places),
- *   "category": string (Food|Transport|Entertainment|Utilities|Other),
- *   "description": string (1-255 chars),
- *   "date": string (YYYY-MM-DD format),
- *   "idempotencyKey": string (UUID, required for BR2)
- * }
- * 
- * Responses:
- * - 201 Created: New expense successfully created
- * - 200 OK: Duplicate submission (idempotencyKey already exists) [BR2]
- * - 400 Bad Request: Validation error (specific field messages)
- * - 500 Internal Server Error: Server error
- * 
- * Business Rules:
- * - BR1: Amount validated as DECIMAL(10,2)
- * - BR2: Idempotency via idempotencyKey
- * - BR3: All fields validated
- * - BR6: Category enum check
- * - BR10: Consistent error response format
+ * Create a new expense entry (Protected)
  */
-app.post('/expenses', (req, res) => {
+app.post('/expenses', authMiddleware, (req, res) => {
   try {
     const { amount, category, description, date, idempotencyKey } = req.body;
 
@@ -71,8 +183,9 @@ app.post('/expenses', (req, res) => {
       });
     }
 
-    // Create expense (includes validation BR3)
+    // Create expense with userId (includes validation BR3)
     const result = expenseModel.create({
+      userId: req.user.userId,
       amount,
       category,
       description,
@@ -106,39 +219,14 @@ app.post('/expenses', (req, res) => {
 /**
  * GET /expenses
  * 
- * Retrieve list of expenses with optional filtering
- * 
- * Query Parameters:
- * - category: Filter by category (Food|Transport|Entertainment|Utilities|Other) [BR4]
- * - sort: Sort order (date_desc for newest first) [BR9]
- * 
- * Response:
- * {
- *   "success": true,
- *   "expenses": [
- *     {
- *       "id": string (UUID),
- *       "amount": string (DECIMAL),
- *       "category": string,
- *       "description": string,
- *       "date": string (YYYY-MM-DD),
- *       "created_at": string (ISO 8601)
- *     }
- *   ],
- *   "total": string (sum with 2 decimal places) [BR8]
- * }
- * 
- * Business Rules:
- * - BR4: Category filtering
- * - BR8: Total calculation with Decimal.js precision
- * - BR9: Date sorting (newest first)
+ * Retrieve list of expenses for current user with optional filtering (Protected)
  */
-app.get('/expenses', (req, res) => {
+app.get('/expenses', authMiddleware, (req, res) => {
   try {
     const { category, sort } = req.query;
 
-    // Get all expenses (with optional category filter) [BR4]
-    const expenses = expenseModel.getAll({ category });
+    // Get all expenses for this user (with optional category filter) [BR4]
+    const expenses = expenseModel.getAll(req.user.userId, { category });
 
     // Apply sorting [BR9]
     let sorted = [...expenses];
@@ -196,6 +284,8 @@ app.listen(PORT, () => {
   Object.entries(BUSINESS_RULES).forEach(([key, rule]) => {
     console.log(`  ${key}: ${rule.name}`);
   });
+  console.log('\nAuthentication: JWT tokens required for /expenses endpoints');
+  console.log('User Isolation: Each user can only see their own expenses');
 });
 
 export default app;

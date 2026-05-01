@@ -3,12 +3,16 @@
  * 
  * Implements BR5: Resilience Under Network Issues
  * - Exponential backoff retry: 1s, 2s, 4s (max 3 attempts)
+ * - Queue submissions during offline
+ * - Auto-sync when connection returns
+ * - Authentication with JWT tokens
  * - Transparent retry handling
  * - User feedback for network errors
  */
 
 import axios, { AxiosError } from 'axios';
 import { PostExpenseRequest, ExpenseListResponse, ExpenseCreateResponse, Expense } from '../types/expense';
+import { OfflineManager } from './offlineManager';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -20,6 +24,17 @@ const api = axios.create({
   },
   timeout: 30000 // 30 second timeout
 });
+
+/**
+ * Set authorization token for API requests
+ */
+export function setAuthToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+}
 
 /**
  * Retry logic with exponential backoff (BR5)
@@ -53,12 +68,14 @@ async function retryWithBackoff<T>(
  * 
  * Implements:
  * - BR2: Idempotency with idempotencyKey
- * - BR5: Retry logic for network failures
+ * - BR5: Retry logic for network failures, queue when offline
  * - Returns 201 for new, 200 for duplicate
  */
 export async function createExpense(
   expense: PostExpenseRequest
 ): Promise<ExpenseCreateResponse> {
+  const manager = OfflineManager.getInstance();
+
   try {
     const response = await retryWithBackoff(() =>
       api.post<ExpenseCreateResponse>('/expenses', expense)
@@ -71,6 +88,21 @@ export async function createExpense(
       throw {
         error: 'Validation failed',
         details: axiosError.response.data
+      };
+    }
+
+    // Queue for sync if offline or network error
+    if (!manager.isOnline || axiosError.code === 'ECONNABORTED' || axiosError.code === 'ERR_NETWORK') {
+      console.log('Offline or network failed. Queueing submission for later sync...');
+      manager.queueSubmission({
+        data: expense,
+        timestamp: Date.now()
+      });
+
+      throw {
+        error: 'Network error - saved locally',
+        details: 'Your expense has been saved. It will sync when your connection is restored.',
+        isOffline: true
       };
     }
 
