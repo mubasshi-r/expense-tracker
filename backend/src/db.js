@@ -1,9 +1,12 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '../../expenses.db');
+const dbPath = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'expenses.db')
+  : path.join(__dirname, '../../expenses.db');
 
 /**
  * BUSINESS RULE BR1: Money Handling - Decimal Precision

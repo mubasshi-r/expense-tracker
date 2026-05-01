@@ -14,7 +14,7 @@ import axios, { AxiosError } from 'axios';
 import { PostExpenseRequest, ExpenseListResponse, ExpenseCreateResponse, Expense } from '../types/expense';
 import { OfflineManager } from './offlineManager';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Configure axios instance
 const api = axios.create({

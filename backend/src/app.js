@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import db, { initializeDatabase } from './db.js';
 import Expense from './models/Expense.js';
 import User from './models/User.js';
@@ -276,8 +278,10 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-if (process.env.NODE_ENV !== 'test') {
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+// Start server when running this file directly. Vercel imports the Express app as a serverless handler.
+if (process.env.NODE_ENV !== 'test' && isDirectRun) {
   app.listen(PORT, () => {
     console.log(`✓ Expense Tracker API running on http://localhost:${PORT}`);
     console.log(`✓ Database: expenses.db`);

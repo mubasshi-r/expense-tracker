@@ -1,0 +1,10 @@
+{
+  "name": "expense-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build --prefix frontend",
+    "vercel-build": "npm run build --prefix frontend"
+  }
+}
