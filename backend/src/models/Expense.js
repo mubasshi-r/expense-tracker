@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import Decimal from 'decimal.js';
-import { VALID_CATEGORIES, VALIDATION_RULES } from './constants.js';
+import { VALID_CATEGORIES, VALIDATION_RULES } from '../constants.js';
 
 /**
  * Expense Model
